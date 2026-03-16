@@ -15,6 +15,7 @@ SKY_BLUE = (135, 206, 235)
 YELLOW = (255, 255, 0)
 GREEN = (0, 200, 0)
 BLUE = (0, 0, 255)
+RED = (255, 0, 0)
 BROWN = (139, 69, 19)
 DARK_BROWN = (101, 67, 33)
 
@@ -23,7 +24,7 @@ GRAVITY = 0.25
 FLAP_STRENGTH = -6.5
 PIPE_SPEED = 3
 PIPE_FREQUENCY = 1500  # milliseconds
-GAP_SIZE = 150
+GAP_SIZE_DEFAULT = 150
 HIGHSCORE_FILE = "highscore.txt"
 
 class Bird:
@@ -52,13 +53,15 @@ class Bird:
         pygame.draw.circle(screen, BLACK, (eye_x, eye_y), 3)
 
 class Pipe:
-    def __init__(self, x, color=GREEN):
+    def __init__(self, x, color=GREEN, gap_size=150, outline_color=BLACK):
         self.x = x
         self.width = 70
         self.color = color
-        self.gap_y = random.randint(100, WINDOW_HEIGHT - 100 - GAP_SIZE)
+        self.outline_color = outline_color
+        self.gap_size = gap_size
+        self.gap_y = random.randint(100, WINDOW_HEIGHT - 100 - self.gap_size)
         self.top_rect = pygame.Rect(self.x, 0, self.width, self.gap_y)
-        self.bottom_rect = pygame.Rect(self.x, self.gap_y + GAP_SIZE, self.width, WINDOW_HEIGHT - (self.gap_y + GAP_SIZE))
+        self.bottom_rect = pygame.Rect(self.x, self.gap_y + self.gap_size, self.width, WINDOW_HEIGHT - (self.gap_y + self.gap_size))
         self.passed = False
 
     def update(self):
@@ -69,9 +72,9 @@ class Pipe:
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, self.top_rect)
         pygame.draw.rect(screen, self.color, self.bottom_rect)
-        # Add a small border to pipes
-        pygame.draw.rect(screen, BLACK, self.top_rect, 2)
-        pygame.draw.rect(screen, BLACK, self.bottom_rect, 2)
+        # Add a border to pipes
+        pygame.draw.rect(screen, self.outline_color, self.top_rect, 2)
+        pygame.draw.rect(screen, self.outline_color, self.bottom_rect, 2)
 
 class FlappyBirdGame:
     def __init__(self):
@@ -90,8 +93,13 @@ class FlappyBirdGame:
         self.easy_rect = pygame.Rect(center_x, 250, button_width, button_height)
         self.medium_rect = pygame.Rect(center_x, 320, button_width, button_height)
         self.hard_rect = pygame.Rect(center_x, 390, button_width, button_height)
+        
+        # Back Button
+        self.back_rect = pygame.Rect(center_x, 500, button_width, button_height)
 
         self.high_score = self.load_high_score()
+        self.current_gap_size = GAP_SIZE_DEFAULT
+        self.current_outline_color = BLACK
         self.reset_game()
         self.in_menu = True
         self.game_started = False
@@ -129,12 +137,24 @@ class FlappyBirdGame:
                 sys.exit()
             
             if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
                 if self.in_menu:
-                    mouse_pos = event.pos
-                    if self.easy_rect.collidepoint(mouse_pos) or \
-                       self.medium_rect.collidepoint(mouse_pos) or \
-                       self.hard_rect.collidepoint(mouse_pos):
+                    if self.easy_rect.collidepoint(mouse_pos):
+                        self.current_gap_size = 180
+                        self.current_outline_color = BLACK
                         self.in_menu = False
+                    elif self.medium_rect.collidepoint(mouse_pos):
+                        self.current_gap_size = 150
+                        self.current_outline_color = YELLOW
+                        self.in_menu = False
+                    elif self.hard_rect.collidepoint(mouse_pos):
+                        self.current_gap_size = 120
+                        self.current_outline_color = RED
+                        self.in_menu = False
+                elif not self.game_started and not self.game_over:
+                    if self.back_rect.collidepoint(mouse_pos):
+                        self.in_menu = True
+                        self.reset_game()
 
             if event.type == pygame.KEYDOWN:
                 if not self.in_menu:
@@ -167,7 +187,7 @@ class FlappyBirdGame:
         if current_time - self.last_pipe_time > PIPE_FREQUENCY:
             self.pipes_spawned += 1
             color = BLUE if self.pipes_spawned % 10 == 0 else GREEN
-            self.pipes.append(Pipe(WINDOW_WIDTH, color))
+            self.pipes.append(Pipe(WINDOW_WIDTH, color, self.current_gap_size, self.current_outline_color))
             self.last_pipe_time = current_time
 
         # Update pipes
@@ -253,10 +273,19 @@ class FlappyBirdGame:
             self.screen.blit(new_record_surface, new_record_rect)
 
         # UI Messages
-        if not self.game_started:
+        if not self.game_started and not self.game_over:
             start_surface = self.font.render("Press SPACE to Start", True, WHITE)
             start_rect = start_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
             self.screen.blit(start_surface, start_rect)
+            
+            # Draw Back Button
+            mouse_pos = pygame.mouse.get_pos()
+            color = (200, 200, 200) if self.back_rect.collidepoint(mouse_pos) else WHITE
+            pygame.draw.rect(self.screen, color, self.back_rect)
+            pygame.draw.rect(self.screen, BLACK, self.back_rect, 2)
+            back_text = self.font.render("Back", True, BLACK)
+            back_text_rect = back_text.get_rect(center=self.back_rect.center)
+            self.screen.blit(back_text, back_text_rect)
         
         if self.game_over:
             # Semi-transparent overlay for game over
