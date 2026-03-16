@@ -83,8 +83,17 @@ class FlappyBirdGame:
         self.bold_font = pygame.font.SysFont("Arial", 32, bold=True)
         self.large_font = pygame.font.SysFont("Arial", 48, bold=True)
         
+        # Difficulty Buttons
+        button_width = 150
+        button_height = 50
+        center_x = WINDOW_WIDTH // 2 - button_width // 2
+        self.easy_rect = pygame.Rect(center_x, 250, button_width, button_height)
+        self.medium_rect = pygame.Rect(center_x, 320, button_width, button_height)
+        self.hard_rect = pygame.Rect(center_x, 390, button_width, button_height)
+
         self.high_score = self.load_high_score()
         self.reset_game()
+        self.in_menu = True
         self.game_started = False
         self.paused = False
 
@@ -119,22 +128,31 @@ class FlappyBirdGame:
                 pygame.quit()
                 sys.exit()
             
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if self.in_menu:
+                    mouse_pos = event.pos
+                    if self.easy_rect.collidepoint(mouse_pos) or \
+                       self.medium_rect.collidepoint(mouse_pos) or \
+                       self.hard_rect.collidepoint(mouse_pos):
+                        self.in_menu = False
+
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE or event.key == pygame.K_UP:
-                    if not self.game_started:
-                        self.game_started = True
-                    if not self.game_over and not self.paused:
-                        self.bird.flap()
-                
-                if event.key == pygame.K_p:
-                    if not self.game_over and self.game_started:
-                        self.paused = not self.paused
-                
-                if event.key == pygame.K_r:
-                    self.reset_game()
+                if not self.in_menu:
+                    if event.key == pygame.K_SPACE or event.key == pygame.K_UP:
+                        if not self.game_started:
+                            self.game_started = True
+                        if not self.game_over and not self.paused:
+                            self.bird.flap()
+                    
+                    if event.key == pygame.K_p:
+                        if not self.game_over and self.game_started:
+                            self.paused = not self.paused
+                    
+                    if event.key == pygame.K_r:
+                        self.reset_game()
 
     def update(self):
-        if not self.game_started or self.game_over or self.paused:
+        if self.in_menu or not self.game_started or self.game_over or self.paused:
             return
 
         # Update bird
@@ -184,6 +202,28 @@ class FlappyBirdGame:
     def draw(self):
         # Background
         self.screen.fill(SKY_BLUE)
+
+        if self.in_menu:
+            # Draw Title
+            title_surface = self.large_font.render("Flappy Bird Python", True, WHITE)
+            title_rect = title_surface.get_rect(center=(WINDOW_WIDTH // 2, 150))
+            self.screen.blit(title_surface, title_rect)
+            
+            # Get mouse position for hover effect
+            mouse_pos = pygame.mouse.get_pos()
+            
+            # Draw Buttons
+            for rect, text in [(self.easy_rect, "Easy"), (self.medium_rect, "Medium"), (self.hard_rect, "Hard")]:
+                # Gray out if hovering
+                color = (200, 200, 200) if rect.collidepoint(mouse_pos) else WHITE
+                pygame.draw.rect(self.screen, color, rect)
+                pygame.draw.rect(self.screen, BLACK, rect, 2)
+                text_surf = self.font.render(text, True, BLACK)
+                text_rect = text_surf.get_rect(center=rect.center)
+                self.screen.blit(text_surf, text_rect)
+            
+            pygame.display.flip()
+            return
 
         # Draw pipes
         for pipe in self.pipes:
